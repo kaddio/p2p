@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kaddio P2P File Transfer</title>
+    <style>
+        /* Prevent iOS zoom on input fields */
+        input, textarea, select {
+            font-size: 16px !important;
+        }
+        
+        /* Ensure buttons are also properly sized */
+        button {
+            font-size: 16px;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -218,6 +229,13 @@
                     • Requires modern browser with WebRTC support</dd>
             </dl>
         </details>
+        
+        <hr>
+        
+        <p style="text-align: center; margin-top: 20px;">
+            <a href="https://kaddio.com" target="_blank" rel="noopener">🌐 Kaddio.com</a> | 
+            <a href="https://github.com/kaddio/p2p" target="_blank" rel="noopener">📁 GitHub Repository</a>
+        </p>
     </footer>
 
     <script src="p2p-transfer.js"></script>
