@@ -88,7 +88,7 @@ class P2PFileTransfer {
         document.getElementById('fileInfo').hidden = false;
         document.getElementById('createOfferBtn').disabled = false;
         
-        this.showStatus('✅ File selected successfully! Now click "Create Share Link"', 'success');
+        this.showStatus('✅ File ready! Now create your share link', 'success');
     }
 
     async createOffer() {
@@ -122,10 +122,15 @@ class P2PFileTransfer {
             
             document.getElementById('shareUrl').textContent = url;
             document.getElementById('shareUrlContainer').hidden = false;
+            document.getElementById('shareUrlContainer').open = true; // Auto-open the details
             document.getElementById('waitingStatus').hidden = false;
             document.getElementById('manualExchange').hidden = false;
             
-            this.showStatus('🎉 Share link created! Send this link to the person you want to share with.', 'success');
+            // Minimize the file selection section since it's completed
+            document.getElementById('file-section').style.opacity = '0.7';
+            document.getElementById('file-section').style.transition = 'opacity 0.3s';
+            
+            this.showStatus('🎉 Share link ready! Send it to your recipient', 'success');
             
             // If we have a pending answer token, process it automatically
             if (this.pendingAnswerToken) {
@@ -183,7 +188,7 @@ class P2PFileTransfer {
                     this.pendingAnswerToken = answerToken;
                     
                     // Show instructions to create offer first
-                    this.showStatus('� Answer received! Please select a file and create an offer first, then the connection will be established automatically.', 'info');
+                    this.showStatus('📨 Answer received! Select a file and create an offer first', 'info');
                     
                     // Auto-fill the answer field
                     const answerTextarea = document.getElementById('answerInput');
@@ -209,17 +214,13 @@ class P2PFileTransfer {
     switchToSendMode() {
         document.getElementById('send-sections').hidden = false;
         document.getElementById('receive-sections').hidden = true;
-        document.getElementById('sendInstructions').hidden = false;
-        document.getElementById('receiveInstructions').hidden = true;
-        this.showStatus('📤 Send mode activated. Select a file to share.', 'info');
+        this.showStatus('📤 Send mode - Select a file to share', 'info');
     }
 
     switchToReceiveMode() {
         document.getElementById('send-sections').hidden = true;
         document.getElementById('receive-sections').hidden = false;
-        document.getElementById('sendInstructions').hidden = true;
-        document.getElementById('receiveInstructions').hidden = false;
-        this.showStatus('📥 Receive mode activated. Paste a share link to connect.', 'info');
+        this.showStatus('📥 Receive mode - Paste a share link', 'info');
     }
 
     processShareLink() {
@@ -264,14 +265,14 @@ class P2PFileTransfer {
         
         if (autoConnect) {
             document.getElementById('receiveInfo').innerHTML = `
-                <p><strong>📋 Incoming File Details:</strong></p>
-                📄 <strong>File:</strong> ${offerData.fileName}<br>
-                📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
-                🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
-                <mark>� Ready to connect! Share link opened successfully.</mark>
+                <p><strong>📋 Incoming File:</strong></p>
+                📄 ${offerData.fileName}<br>
+                📏 ${this.formatFileSize(offerData.fileSize)}<br>
+                🏷️ ${offerData.fileType || 'Unknown'}<br><br>
+                <mark>✅ Ready to connect!</mark>
             `;
             
-            this.showStatus('✅ Share link processed! Creating connection response...', 'info');
+            this.showStatus('✅ Processing share link...', 'info');
             
             // Start the connection process now that remoteOffer is set
             this.handleAnswer();
@@ -281,14 +282,14 @@ class P2PFileTransfer {
             document.getElementById('connectBtn').disabled = false;
             
             document.getElementById('receiveInfo').innerHTML = `
-                <p><strong>📋 Incoming File Details:</strong></p>
-                📄 <strong>File:</strong> ${offerData.fileName}<br>
-                📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
-                🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
-                <mark>Click "Accept File Transfer" below to receive this file</mark>
+                <p><strong>📋 Incoming File:</strong></p>
+                📄 ${offerData.fileName}<br>
+                📏 ${this.formatFileSize(offerData.fileSize)}<br>
+                🏷️ ${offerData.fileType || 'Unknown'}<br><br>
+                <mark>Click "Accept File" below to receive this file</mark>
             `;
             
-            this.showStatus('🔗 Connected to sender! Review file details and click Accept.', 'success');
+            this.showStatus('🔗 Connected to sender! Review file and click Accept', 'success');
         }
     }
 
@@ -523,9 +524,9 @@ class P2PFileTransfer {
         statusEl.textContent = message;
         statusEl.hidden = false;
         
-        // Also update the progress text if it's just "Ready to transfer..."
+        // Also update the progress text if it's the initial message
         const progressText = document.getElementById('progressText');
-        if (progressText.textContent === 'Ready to transfer...') {
+        if (progressText.textContent === 'Select a mode above to get started') {
             progressText.textContent = message;
         }
     }

@@ -43,103 +43,49 @@
             </fieldset>
         </section>
         
-        <section>
-            <h2>📋 How This Works</h2>
-            <details>
-                <summary><strong>Simple Process</strong></summary>
-                <div id="sendInstructions">
-                    <h3>📤 Sending Files:</h3>
-                    <ol>
-                        <li>Choose a file from your device</li>
-                        <li>Click "Create Share Link"</li>
-                        <li>Send the generated link to someone</li>
-                        <li>Wait for them to connect and receive the file</li>
-                    </ol>
-                </div>
-                <div id="receiveInstructions" hidden>
-                    <h3>📥 Receiving Files:</h3>
-                    <ol>
-                        <li>Get a share link from someone</li>
-                        <li>Paste the link in the input field below</li>
-                        <li>Click "Connect to Sender"</li>
-                        <li>Accept the file transfer when prompted</li>
-                    </ol>
-                </div>
-                <p><mark>⚠️ IMPORTANT: Both browsers must stay open during the entire transfer!</mark></p>
-                <p>🔒 Your files are encrypted and transfer directly between browsers - no servers involved!</p>
-                <p><strong>🌐 Requires a modern browser:</strong> Chrome, Firefox, Safari, or Edge (WebRTC support needed)</p>
-                
-                <details>
-                    <summary><strong>📏 File Size Limits & Performance</strong></summary>
-                    <h4>File Size Guidelines:</h4>
-                    <ul>
-                        <li><strong>✅ Small files (up to 100MB):</strong> Transfer quickly and reliably</li>
-                        <li><strong>⚠️ Medium files (100MB - 1GB):</strong> Work well, but take longer to transfer</li>
-                        <li><strong>🐌 Large files (1GB+):</strong> Possible but slow, requires stable connection</li>
-                        <li><strong>⚡ Very large files (5GB+):</strong> May fail due to browser memory limits</li>
-                    </ul>
-                    
-                    <h4>Performance Tips:</h4>
-                    <ul>
-                        <li><strong>💪 RAM Usage:</strong> Large files use significant browser memory during transfer</li>
-                        <li><strong>🌐 Connection Quality:</strong> Stable, fast internet gives better results</li>
-                        <li><strong>⏱️ Time Estimates:</strong> ~1-5 minutes per 100MB depending on connection</li>
-                        <li><strong>🔄 For huge files:</strong> Consider splitting into smaller parts</li>
-                    </ul>
-                    
-                    <p><em>💡 Tip: Test with a small file first to ensure your connection works!</em></p>
-                </details>
-            </details>
-        </section>
-        
         <!-- SEND MODE SECTIONS -->
         <div id="send-sections">
-            <!-- STEP 1: FILE SELECTION -->
+            <!-- FILE SELECTION -->
             <section id="file-section">
-                <h2>📁 Step 1: Select Your File</h2>
+                <h2>📁 Choose Your File</h2>
                 <fieldset>
-                    <legend>Choose the file you want to share</legend>
+                    <legend>Select the file you want to share</legend>
                     <input type="file" id="fileInput" required>
                     <br><br>
                     <output id="fileInfo" hidden>
-                        <strong>✅ File Selected:</strong><br>
-                        📄 <strong>Name:</strong> <span id="fileName"></span><br>
-                        📏 <strong>Size:</strong> <span id="fileSize"></span><br>
-                        🏷️ <strong>Type:</strong> <span id="fileType"></span>
+                        <strong>✅ File Ready:</strong><br>
+                        📄 <span id="fileName"></span><br>
+                        📏 <span id="fileSize"></span><br>
+                        🏷️ <span id="fileType"></span>
                     </output>
                 </fieldset>
             </section>
 
-            <!-- STEP 2: CREATE SHARE LINK -->
+            <!-- SHARE LINK -->
             <section id="connection-section">
-                <h2>🔗 Step 2: Create Share Link</h2>
+                <h2>🔗 Create & Share Link</h2>
                 <fieldset>
-                    <legend>Generate a secure link to share</legend>
+                    <legend>Generate your share link</legend>
                     <button id="createOfferBtn" disabled>🚀 Create Share Link</button>
                     
                     <details id="shareUrlContainer" hidden>
-                        <summary><strong>📋 Your Share Link (Click to Copy)</strong></summary>
-                        <textarea id="shareUrl" readonly rows="3" style="width: 100%; font-family: monospace;"></textarea>
-                        <button id="copyUrlBtn">📋 Copy Link to Clipboard</button>
+                        <summary><strong>📋 Share This Link</strong></summary>
+                        <textarea id="shareUrl" readonly rows="3" style="width: 100%; font-family: monospace; margin: 10px 0;"></textarea>
+                        <button id="copyUrlBtn">📋 Copy Link</button>
+                        <p><small>Send this link to the person you want to share with</small></p>
                     </details>
                     
                     <div id="waitingStatus" hidden>
-                        <p><strong>⏳ Status:</strong> Waiting for someone to connect...</p>
+                        <p><strong>⏳ Waiting for connection...</strong></p>
                         <progress indeterminate>Waiting...</progress>
                     </div>
                     
                     <details id="manualExchange" hidden>
-                        <summary><strong>🔧 Manual Exchange (if link doesn't work)</strong></summary>
-                        <p>If the automatic link doesn't work, you can manually exchange connection data:</p>
-                        <ol>
-                            <li>Send the link above to the receiver</li>
-                            <li>Ask them to send you back their "answer code"</li>
-                            <li>Paste their answer code below:</li>
-                        </ol>
-                        <textarea id="answerInput" placeholder="Paste the answer code from receiver here..." 
-                                 rows="4" style="width: 100%; font-family: monospace;"></textarea>
-                        <br><br>
-                        <button id="processAnswerBtn">🔌 Connect Using Answer Code</button>
+                        <summary><strong>🔧 Manual Connection</strong></summary>
+                        <p>If the automatic connection doesn't work:</p>
+                        <textarea id="answerInput" placeholder="Paste answer code from receiver here..." 
+                                 rows="3" style="width: 100%; font-family: monospace; margin: 10px 0;"></textarea>
+                        <button id="processAnswerBtn">🔌 Connect</button>
                     </details>
                 </fieldset>
             </section>
@@ -147,51 +93,49 @@
 
         <!-- RECEIVE MODE SECTIONS -->
         <div id="receive-sections" hidden>
-            <!-- STEP 1: ENTER SHARE LINK -->
+            <!-- LINK INPUT -->
             <section id="link-input-section">
-                <h2>🔗 Step 1: Enter Share Link</h2>
+                <h2>🔗 Enter Share Link</h2>
                 <fieldset>
                     <legend>Paste the link someone shared with you</legend>
-                    <textarea id="shareLinkInput" placeholder="Paste the share link here..." 
-                             rows="3" style="width: 100%; font-family: monospace;"></textarea>
-                    <br><br>
-                    <button id="processLinkBtn">🔌 Connect to Sender</button>
+                    <textarea id="shareLinkInput" placeholder="Paste share link here..." 
+                             rows="3" style="width: 100%; font-family: monospace; margin: 10px 0;"></textarea>
+                    <button id="processLinkBtn">🔌 Connect</button>
                 </fieldset>
             </section>
 
-            <!-- STEP 2: RECEIVE FILE (For receivers) -->
+            <!-- FILE DETAILS & ACCEPT -->
             <section id="receive-section">
-                <h2>📥 Step 2: Receive File</h2>
+                <h2>📥 Incoming File</h2>
                 <fieldset>
-                    <legend>Accept incoming file transfer</legend>
+                    <legend>File transfer details</legend>
                     <output id="receiveInfo">
-                        <p>File details will appear here when you connect to a sender...</p>
+                        <p>Connect to a sender to see file details...</p>
                     </output>
                     <br>
-                    <button id="connectBtn" disabled>✅ Accept File Transfer</button>
+                    <button id="connectBtn" disabled>✅ Accept File</button>
                     
                     <details id="answerDisplay" hidden>
-                        <summary><strong>📤 Answer Code (Send this back to sender)</strong></summary>
-                        <p>Copy this code and send it back to the person sharing the file:</p>
-                        <textarea id="answerText" readonly rows="4" style="width: 100%; font-family: monospace;"></textarea>
-                        <button id="copyAnswerBtn">📋 Copy Answer Code</button>
+                        <summary><strong>📤 Manual Connection Code</strong></summary>
+                        <p>Send this code back to the sender if automatic connection fails:</p>
+                        <textarea id="answerText" readonly rows="3" style="width: 100%; font-family: monospace; margin: 10px 0;"></textarea>
+                        <button id="copyAnswerBtn">📋 Copy Code</button>
                     </details>
                 </fieldset>
             </section>
         </div>
 
-        <!-- STEP 3: TRANSFER STATUS -->
+        <!-- TRANSFER STATUS -->
         <section id="transfer-section">
-            <h2>📤 Step 3: File Transfer</h2>
+            <h2>� Transfer Status</h2>
             <fieldset>
-                <legend>Transfer progress and status</legend>
+                <legend>Progress and connection status</legend>
                 <output id="connectionStatus" hidden>
-                    Connection status will appear here...
+                    Ready to transfer...
                 </output>
                 <br>
-                <label for="progressBar">Transfer Progress:</label>
                 <progress id="progressBar" value="0" max="100" hidden>0%</progress>
-                <output id="progressText">Ready to transfer...</output>
+                <output id="progressText">Select a mode above to get started</output>
             </fieldset>
         </section>
     </main>
