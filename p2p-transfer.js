@@ -154,6 +154,30 @@ class P2PFileTransfer {
         const hash = window.location.hash.slice(1);
         if (hash) {
             try {
+                const urlParams = new URLSearchParams(hash);
+                
+                // Check if this is an answer token for a sender
+                if (urlParams.has('answer')) {
+                    const answerToken = urlParams.get('answer');
+                    document.getElementById('sendMode').checked = true;
+                    this.switchToSendMode();
+                    
+                    // Auto-process the answer
+                    const answerTextarea = document.getElementById('answerInput');
+                    answerTextarea.value = answerToken;
+                    this.showStatus('🔄 Answer received automatically! Processing connection...', 'info');
+                    
+                    // Small delay to show status message
+                    setTimeout(() => {
+                        this.processAnswer();
+                    }, 1000);
+                    
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    return;
+                }
+                
+                // Otherwise treat as offer data (original behavior)
                 const offerData = JSON.parse(atob(hash));
                 // Switch to receive mode automatically when a link is opened
                 document.getElementById('receiveMode').checked = true;
@@ -284,13 +308,32 @@ class P2PFileTransfer {
             
             // Update status based on whether this is auto-connection or manual
             if (this.isAutoConnecting) {
-                this.showStatus('📤 Connection details ready! Send the answer code above to the sender to complete the connection.', 'info');
+                // Create a link back to sender with answer token
+                const currentUrl = window.location.origin + window.location.pathname;
+                const answerUrl = `${currentUrl}#answer=${encodeURIComponent(answerString)}`;
+                
+                this.showStatus('� Connection ready! Click the link below to automatically send your answer to the sender.', 'info');
                 document.getElementById('receiveInfo').innerHTML = `
                     <p><strong>📋 Incoming File Details:</strong></p>
                     📄 <strong>File:</strong> ${this.receivedFileName}<br>
                     📏 <strong>Size:</strong> ${this.formatFileSize(this.totalSize)}<br>
                     🏷️ <strong>Type:</strong> ${this.receivedFileType || 'Unknown'}<br><br>
-                    <mark>⬆️ Send the answer code above to the sender to start the transfer</mark>
+                    
+                    <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <p><strong>🔗 Automatic Connection:</strong></p>
+                        <p>Click this link to automatically connect to the sender:</p>
+                        <a href="${answerUrl}" target="_blank" 
+                           style="display: inline-block; background: #007acc; color: white; padding: 10px 15px; 
+                                  text-decoration: none; border-radius: 5px; margin: 5px 0;">
+                           🚀 Connect to Sender Automatically
+                        </a>
+                        <br><small>This will open the sender's page and automatically establish the connection.</small>
+                    </div>
+                    
+                    <details>
+                        <summary>Manual Method (if automatic doesn't work)</summary>
+                        <p>Copy the answer code above and paste it into the sender's page.</p>
+                    </details>
                 `;
             } else {
                 this.showStatus('📤 Answer created! Copy the answer code above and send it back to the sender.', 'info');
