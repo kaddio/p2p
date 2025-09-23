@@ -7,6 +7,7 @@ class P2PFileTransfer {
         this.file = null;
         this.isOfferer = false;
         this.isReceiver = false;
+        this.isAutoConnecting = false;
         this.receivedData = [];
         this.receivedSize = 0;
         this.totalSize = 0;
@@ -206,6 +207,7 @@ class P2PFileTransfer {
 
     setupReceiver(offerData, autoConnect = false) {
         this.isReceiver = true;
+        this.isAutoConnecting = autoConnect;
         this.receivedFileName = offerData.fileName;
         this.receivedFileType = offerData.fileType;
         this.totalSize = offerData.fileSize;
@@ -220,23 +222,21 @@ class P2PFileTransfer {
         this.remoteOffer = offerData.offer;
         
         if (autoConnect) {
-            // Disable the manual connect button since auto-connection is happening
-            document.getElementById('connectBtn').disabled = true;
-            
             document.getElementById('receiveInfo').innerHTML = `
                 <p><strong>📋 Incoming File Details:</strong></p>
                 📄 <strong>File:</strong> ${offerData.fileName}<br>
                 📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
                 🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
-                <mark>🔄 Connecting automatically...</mark>
+                <mark>� Ready to connect! Share link opened successfully.</mark>
             `;
             
-            this.showStatus('🔗 Auto-connecting to sender...', 'info');
+            this.showStatus('✅ Share link processed! Creating connection response...', 'info');
             
             // Start the connection process now that remoteOffer is set
             this.handleAnswer();
         } else {
             // Manual connection flow
+            this.isAutoConnecting = false;
             document.getElementById('connectBtn').disabled = false;
             
             document.getElementById('receiveInfo').innerHTML = `
@@ -282,7 +282,19 @@ class P2PFileTransfer {
             document.getElementById('answerText').textContent = answerString;
             document.getElementById('answerDisplay').hidden = false;
             
-            this.showStatus('📤 Answer created! Copy the answer code above and send it back to the sender.', 'info');
+            // Update status based on whether this is auto-connection or manual
+            if (this.isAutoConnecting) {
+                this.showStatus('📤 Connection details ready! Send the answer code above to the sender to complete the connection.', 'info');
+                document.getElementById('receiveInfo').innerHTML = `
+                    <p><strong>📋 Incoming File Details:</strong></p>
+                    📄 <strong>File:</strong> ${this.receivedFileName}<br>
+                    📏 <strong>Size:</strong> ${this.formatFileSize(this.totalSize)}<br>
+                    🏷️ <strong>Type:</strong> ${this.receivedFileType || 'Unknown'}<br><br>
+                    <mark>⬆️ Send the answer code above to the sender to start the transfer</mark>
+                `;
+            } else {
+                this.showStatus('📤 Answer created! Copy the answer code above and send it back to the sender.', 'info');
+            }
             
         } catch (error) {
             this.showStatus('Error creating answer: ' + error.message, 'error');
