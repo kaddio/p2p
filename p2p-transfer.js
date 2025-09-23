@@ -157,9 +157,7 @@ class P2PFileTransfer {
                 // Switch to receive mode automatically when a link is opened
                 document.getElementById('receiveMode').checked = true;
                 this.switchToReceiveMode();
-                this.setupReceiver(offerData);
-                // Automatically start the connection process
-                this.handleAnswer();
+                this.setupReceiver(offerData, true); // Pass autoConnect flag
             } catch (error) {
                 this.showStatus('Invalid share link', 'error');
             }
@@ -206,7 +204,7 @@ class P2PFileTransfer {
         }
     }
 
-    setupReceiver(offerData) {
+    setupReceiver(offerData, autoConnect = false) {
         this.isReceiver = true;
         this.receivedFileName = offerData.fileName;
         this.receivedFileType = offerData.fileType;
@@ -219,23 +217,47 @@ class P2PFileTransfer {
         // Hide Step 1 since the connection is already established
         document.getElementById('link-input-section').hidden = true;
         
-        // Disable the manual connect button since auto-connection is happening
-        document.getElementById('connectBtn').disabled = true;
-        
-        document.getElementById('receiveInfo').innerHTML = `
-            <p><strong>📋 Incoming File Details:</strong></p>
-            📄 <strong>File:</strong> ${offerData.fileName}<br>
-            📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
-            🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
-            <mark>🔄 Connecting automatically...</mark>
-        `;
-        
         this.remoteOffer = offerData.offer;
-        this.showStatus('🔗 Auto-connecting to sender...', 'info');
+        
+        if (autoConnect) {
+            // Disable the manual connect button since auto-connection is happening
+            document.getElementById('connectBtn').disabled = true;
+            
+            document.getElementById('receiveInfo').innerHTML = `
+                <p><strong>📋 Incoming File Details:</strong></p>
+                📄 <strong>File:</strong> ${offerData.fileName}<br>
+                📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
+                🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
+                <mark>🔄 Connecting automatically...</mark>
+            `;
+            
+            this.showStatus('🔗 Auto-connecting to sender...', 'info');
+            
+            // Start the connection process now that remoteOffer is set
+            this.handleAnswer();
+        } else {
+            // Manual connection flow
+            document.getElementById('connectBtn').disabled = false;
+            
+            document.getElementById('receiveInfo').innerHTML = `
+                <p><strong>📋 Incoming File Details:</strong></p>
+                📄 <strong>File:</strong> ${offerData.fileName}<br>
+                📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
+                🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
+                <mark>Click "Accept File Transfer" below to receive this file</mark>
+            `;
+            
+            this.showStatus('🔗 Connected to sender! Review file details and click Accept.', 'success');
+        }
     }
 
     async handleAnswer() {
         try {
+            if (!this.remoteOffer) {
+                this.showStatus('Error: No connection offer available', 'error');
+                return;
+            }
+
             this.localConnection = new RTCPeerConnection(this.rtcConfig);
             this.setupConnectionEvents();
             
