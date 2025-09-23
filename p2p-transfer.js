@@ -14,6 +14,7 @@ class P2PFileTransfer {
         this.receivedFileName = '';
         this.receivedFileType = '';
         this.chunkSize = 16384; // 16KB chunks
+        this.pendingAnswerToken = null; // Store answer token when received before offer is created
         
         // WebRTC Configuration with public STUN servers for NAT traversal
         this.rtcConfig = {
@@ -124,6 +125,15 @@ class P2PFileTransfer {
             
             this.showStatus('🎉 Share link created! Send this link to the person you want to share with.', 'success');
             
+            // If we have a pending answer token, process it automatically
+            if (this.pendingAnswerToken) {
+                this.showStatus('🔄 Processing received answer automatically...', 'info');
+                setTimeout(() => {
+                    this.processAnswer();
+                    this.pendingAnswerToken = null; // Clear the pending token
+                }, 1000);
+            }
+            
         } catch (error) {
             this.showStatus('Error creating offer: ' + error.message, 'error');
             console.error('Create offer error:', error);
@@ -135,6 +145,11 @@ class P2PFileTransfer {
             const answerText = document.getElementById('answerInput').value.trim();
             if (!answerText) {
                 this.showStatus('Please paste the answer from the receiver', 'error');
+                return;
+            }
+
+            if (!this.localConnection) {
+                this.showStatus('Error: No active connection offer. Please select a file and create an offer first.', 'error');
                 return;
             }
 
@@ -162,15 +177,15 @@ class P2PFileTransfer {
                     document.getElementById('sendMode').checked = true;
                     this.switchToSendMode();
                     
-                    // Auto-process the answer
+                    // Store the answer token for later use
+                    this.pendingAnswerToken = answerToken;
+                    
+                    // Show instructions to create offer first
+                    this.showStatus('� Answer received! Please select a file and create an offer first, then the connection will be established automatically.', 'info');
+                    
+                    // Auto-fill the answer field
                     const answerTextarea = document.getElementById('answerInput');
                     answerTextarea.value = answerToken;
-                    this.showStatus('🔄 Answer received automatically! Processing connection...', 'info');
-                    
-                    // Small delay to show status message
-                    setTimeout(() => {
-                        this.processAnswer();
-                    }, 1000);
                     
                     // Clean URL
                     window.history.replaceState({}, document.title, window.location.pathname);
