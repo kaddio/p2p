@@ -1,5 +1,7 @@
 class P2PFileTransfer {
     constructor() {
+        console.log("That's right, inspect the code to make sure WYSIWYG");
+        
         this.localConnection = null;
         this.dataChannel = null;
         this.file = null;
