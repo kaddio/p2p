@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P File Transfer</title>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 P2P File Transfer</h1>
+        <div class="instructions">
+            <strong>How it works:</strong> Select a file, create a share link, and send it to someone. 
+            They'll connect directly to your browser for secure, encrypted file transfer. 
+            <strong>Note:</strong> Both browsers must remain open during transfer.
+        </div>
+        
+        <!-- File Selection Section -->
+        <div class="section active" id="file-section">
+            <h2>📁 Select File to Share</h2>
+            <div class="file-input-container">
+                <input type="file" id="fileInput" class="file-input">
+                <label for="fileInput" class="file-input-label">
+                    Choose File to Share
+                </label>
+            </div>
+            <div class="file-info" id="fileInfo">
+                <strong>Selected:</strong> <span id="fileName"></span><br>
+                <strong>Size:</strong> <span id="fileSize"></span><br>
+                <strong>Type:</strong> <span id="fileType"></span>
+            </div>
+        </div>
+
+        <!-- Connection Section -->
+        <div class="section" id="connection-section">
+            <h2>🔗 Share Connection</h2>
+            <button class="btn" id="createOfferBtn" disabled>Create Share Link</button>
+            <div class="share-url hidden" id="shareUrlContainer">
+                <div id="shareUrl"></div>
+                <button class="btn copy-btn" id="copyUrlBtn">Copy Link</button>
+            </div>
+            <div class="status info hidden" id="waitingStatus">
+                Waiting for connection...
+            </div>
+            
+            <!-- Answer input for manual signaling -->
+            <div class="hidden" id="answerSection">
+                <h3>Paste the answer from the receiver:</h3>
+                <textarea id="answerInput" placeholder="Paste answer here..." 
+                         style="width: 100%; height: 100px; margin: 10px 0; padding: 10px; border-radius: 8px; border: 1px solid #ddd;"></textarea>
+                <button class="btn" id="processAnswerBtn">Connect</button>
+            </div>
+        </div>
+
+        <!-- Receive Section -->
+        <div class="section" id="receive-section">
+            <h2>📥 Receive File</h2>
+            <div class="status info" id="receiveInfo">File details will appear here...</div>
+            <button class="btn" id="connectBtn" disabled>Accept File Transfer</button>
+            
+            <!-- Show answer for sender -->
+            <div class="hidden" id="answerDisplay">
+                <h3>Send this answer back to the sender:</h3>
+                <div class="peer-answer" id="answerText"></div>
+                <button class="btn copy-btn" id="copyAnswerBtn">Copy Answer</button>
+            </div>
+        </div>
+
+        <!-- Transfer Section -->
+        <div class="section" id="transfer-section">
+            <h2>📤 Transfer Status</h2>
+            <div class="status info hidden" id="connectionStatus"></div>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class P2PFileTransfer {
+            constructor() {
+                this.localConnection = null;
+                this.dataChannel = null;
+                this.file = null;
+                this.isOfferer = false;
+                this.isReceiver = false;
+                this.receivedData = [];
+                this.receivedSize = 0;
+                this.totalSize = 0;
+                this.receivedFileName = '';
+                this.receivedFileType = '';
+                this.chunkSize = 16384; // 16KB chunks
+                
+                // WebRTC Configuration with public STUN servers for NAT traversal
+                this.rtcConfig = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun.cloudflare.com:3478' }
+                    ]
+                };
+
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.checkUrlForOffer();
+            }
+
+            bindEvents() {
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFileSelect(e.target.files[0]);
+                });
+
+                document.getElementById('createOfferBtn').addEventListener('click', () => {
+                    this.createOffer();
+                });
+
+                document.getElementById('connectBtn').addEventListener('click', () => {
+                    this.handleAnswer();
+                });
+
+                document.getElementById('copyUrlBtn').addEventListener('click', () => {
+                    this.copyToClipboard(document.getElementById('shareUrl').textContent);
+                });
+
+                document.getElementById('copyAnswerBtn').addEventListener('click', () => {
+                    this.copyToClipboard(document.getElementById('answerText').textContent);
+                });
+
+                document.getElementById('processAnswerBtn').addEventListener('click', () => {
+                    this.processAnswer();
+                });
+            }
+
+            handleFileSelect(file) {
+                if (!file) return;
+                
+                this.file = file;
+                
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileSize').textContent = this.formatFileSize(file.size);
+                document.getElementById('fileType').textContent = file.type || 'Unknown';
+                document.getElementById('fileInfo').classList.add('show');
+                document.getElementById('createOfferBtn').disabled = false;
+                
+                this.showStatus('File selected successfully!', 'success');
+            }
+
+            async createOffer() {
+                try {
+                    this.isOfferer = true;
+                    this.localConnection = new RTCPeerConnection(this.rtcConfig);
+                    
+                    // Create data channel for file transfer
+                    this.dataChannel = this.localConnection.createDataChannel('fileTransfer', {
+                        ordered: true
+                    });
+                    
+                    this.setupDataChannel();
+                    this.setupConnectionEvents();
+                    
+                    const offer = await this.localConnection.createOffer();
+                    await this.localConnection.setLocalDescription(offer);
+                    
+                    // Wait for ICE gathering to complete
+                    await this.waitForIceGatheringComplete();
+                    
+                    const offerData = {
+                        offer: this.localConnection.localDescription,
+                        fileName: this.file.name,
+                        fileSize: this.file.size,
+                        fileType: this.file.type
+                    };
+                    
+                    const url = window.location.origin + window.location.pathname + '#' + 
+                               btoa(JSON.stringify(offerData));
+                    
+                    document.getElementById('shareUrl').textContent = url;
+                    document.getElementById('shareUrlContainer').classList.remove('hidden');
+                    document.getElementById('waitingStatus').classList.remove('hidden');
+                    document.getElementById('answerSection').classList.remove('hidden');
+                    
+                    this.showStatus('Share link created! Send it to the recipient and wait for their answer.', 'info');
+                    
+                } catch (error) {
+                    this.showStatus('Error creating offer: ' + error.message, 'error');
+                    console.error('Create offer error:', error);
+                }
+            }
+
+            async processAnswer() {
+                try {
+                    const answerText = document.getElementById('answerInput').value.trim();
+                    if (!answerText) {
+                        this.showStatus('Please paste the answer from the receiver', 'error');
+                        return;
+                    }
+
+                    const answerData = JSON.parse(atob(answerText));
+                    await this.localConnection.setRemoteDescription(answerData.answer);
+                    
+                    this.showStatus('Answer processed! Waiting for connection...', 'info');
+                    document.getElementById('answerSection').classList.add('hidden');
+                    
+                } catch (error) {
+                    this.showStatus('Error processing answer: ' + error.message, 'error');
+                    console.error('Process answer error:', error);
+                }
+            }
+
+            checkUrlForOffer() {
+                const hash = window.location.hash.slice(1);
+                if (hash) {
+                    try {
+                        const offerData = JSON.parse(atob(hash));
+                        this.setupReceiver(offerData);
+                    } catch (error) {
+                        this.showStatus('Invalid share link', 'error');
+                    }
+                }
+            }
+
+            setupReceiver(offerData) {
+                this.isReceiver = true;
+                this.receivedFileName = offerData.fileName;
+                this.receivedFileType = offerData.fileType;
+                this.totalSize = offerData.fileSize;
+                
+                document.getElementById('file-section').style.display = 'none';
+                document.getElementById('connection-section').style.display = 'none';
+                document.getElementById('receive-section').classList.add('active');
+                document.getElementById('connectBtn').disabled = false;
+                
+                document.getElementById('receiveInfo').innerHTML = `
+                    <strong>File:</strong> ${offerData.fileName}<br>
+                    <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
+                    <strong>Type:</strong> ${offerData.fileType || 'Unknown'}
+                `;
+                
+                this.remoteOffer = offerData.offer;
+            }
+
+            async handleAnswer() {
+                try {
+                    this.localConnection = new RTCPeerConnection(this.rtcConfig);
+                    this.setupConnectionEvents();
+                    
+                    // Handle incoming data channel
+                    this.localConnection.ondatachannel = (event) => {
+                        this.dataChannel = event.channel;
+                        this.setupDataChannel();
+                    };
+                    
+                    await this.localConnection.setRemoteDescription(this.remoteOffer);
+                    const answer = await this.localConnection.createAnswer();
+                    await this.localConnection.setLocalDescription(answer);
+                    
+                    // Wait for ICE gathering
+                    await this.waitForIceGatheringComplete();
+                    
+                    const answerData = {
+                        answer: this.localConnection.localDescription
+                    };
+                    
+                    const answerString = btoa(JSON.stringify(answerData));
+                    document.getElementById('answerText').textContent = answerString;
+                    document.getElementById('answerDisplay').classList.remove('hidden');
+                    
+                    this.showStatus('Answer created! Send it back to the sender.', 'info');
+                    
+                } catch (error) {
+                    this.showStatus('Error creating answer: ' + error.message, 'error');
+                    console.error('Handle answer error:', error);
+                }
+            }
+
+            setupDataChannel() {
+                if (!this.dataChannel) return;
+                
+                this.dataChannel.onopen = () => {
+                    this.showStatus('Connection established! Starting file transfer...', 'success');
+                    document.getElementById('progressContainer').classList.add('show');
+                    
+                    if (this.isOfferer && this.file) {
+                        this.sendFile();
+                    }
+                };
+                
+                this.dataChannel.onmessage = (event) => {
+                    if (this.isReceiver) {
+                        this.handleReceivedData(event.data);
+                    }
+                };
+                
+                this.dataChannel.onerror = (error) => {
+                    this.showStatus('Data channel error: ' + error, 'error');
+                    console.error('Data channel error:', error);
+                };
+
+                this.dataChannel.onclose = () => {
+                    this.showStatus('Connection closed', 'info');
+                };
+            }
+
+            async sendFile() {
+                if (!this.file || !this.dataChannel) return;
+                
+                const totalChunks = Math.ceil(this.file.size / this.chunkSize);
+                let chunkIndex = 0;
+                
+                const sendChunk = () => {
+                    if (this.dataChannel.readyState !== 'open') return;
+                    
+                    const start = chunkIndex * this.chunkSize;
+                    const end = Math.min(start + this.chunkSize, this.file.size);
+                    const chunk = this.file.slice(start, end);
+                    
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        try {
+                            this.dataChannel.send(reader.result);
+                            chunkIndex++;
+                            
+                            const progress = (chunkIndex / totalChunks) * 100;
+                            this.updateProgress(progress);
+                            
+                            if (chunkIndex < totalChunks) {
+                                // Use requestAnimationFrame for better performance
+                                requestAnimationFrame(sendChunk);
+                            } else {
+                                this.showStatus('File sent successfully!', 'success');
+                            }
+                        } catch (error) {
+                            this.showStatus('Error sending chunk: ' + error.message, 'error');
+                            console.error('Send chunk error:', error);
+                        }
+                    };
+                    reader.readAsArrayBuffer(chunk);
+                };
+                
+                sendChunk();
+            }
+
+            handleReceivedData(data) {
+                this.receivedData.push(data);
+                this.receivedSize += data.byteLength;
+                
+                const progress = (this.receivedSize / this.totalSize) * 100;
+                this.updateProgress(progress);
+                
+                if (this.receivedSize >= this.totalSize) {
+                    this.completeReceive();
+                }
+            }
+
+            completeReceive() {
+                try {
+                    const blob = new Blob(this.receivedData, { type: this.receivedFileType });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = this.receivedFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    URL.revokeObjectURL(url);
+                    
+                    this.showStatus('File received and downloaded successfully!', 'success');
+                } catch (error) {
+                    this.showStatus('Error saving file: ' + error.message, 'error');
+                    console.error('Complete receive error:', error);
+                }
+            }
+
+            setupConnectionEvents() {
+                this.localConnection.oniceconnectionstatechange = () => {
+                    const state = this.localConnection.iceConnectionState;
+                    console.log('ICE connection state:', state);
+                    
+                    if (state === 'connected' || state === 'completed') {
+                        this.showStatus('Peers connected successfully!', 'success');
+                    } else if (state === 'failed' || state === 'disconnected') {
+                        this.showStatus('Connection failed or lost', 'error');
+                    }
+                };
+                
+                this.localConnection.onconnectionstatechange = () => {
+                    const state = this.localConnection.connectionState;
+                    console.log('Connection state:', state);
+                };
+
+                this.localConnection.onicecandidateerror = (event) => {
+                    console.error('ICE candidate error:', event);
+                };
+            }
+
+            waitForIceGatheringComplete() {
+                return new Promise((resolve) => {
+                    if (this.localConnection.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        const checkState = () => {
+                            if (this.localConnection.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        };
+                        this.localConnection.addEventListener('icegatheringstatechange', checkState);
+                        
+                        // Fallback timeout
+                        setTimeout(() => {
+                            this.localConnection.removeEventListener('icegatheringstatechange', checkState);
+                            resolve();
+                        }, 10000);
+                    }
+                });
+            }
+
+            updateProgress(progress) {
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                
+                progressFill.style.width = Math.min(progress, 100) + '%';
+                progressText.textContent = Math.round(Math.min(progress, 100)) + '%';
+            }
+
+            showStatus(message, type) {
+                const statusEl = document.getElementById('connectionStatus');
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`;
+                statusEl.classList.remove('hidden');
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            async copyToClipboard(text) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    this.showStatus('Copied to clipboard!', 'success');
+                } catch (error) {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    this.showStatus('Copied to clipboard!', 'success');
+                }
+            }
+        }
+
+        // Initialize the application when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new P2PFileTransfer();
+        });
+    </script>
+</body>
+</html>
