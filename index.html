@@ -3,80 +3,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P File Transfer</title>
+    <title>Kaddio P2P File Transfer</title>
 </head>
 <body>
-    <div class="container">
-        <h1>🔐 P2P File Transfer</h1>
-        <div class="instructions">
-            <strong>How it works:</strong> Select a file, create a share link, and send it to someone. 
-            They'll connect directly to your browser for secure, encrypted file transfer. 
-            <strong>Note:</strong> Both browsers must remain open during transfer.
-        </div>
-        
-        <!-- File Selection Section -->
-        <div class="section active" id="file-section">
-            <h2>📁 Select File to Share</h2>
-            <div class="file-input-container">
-                <input type="file" id="fileInput" class="file-input">
-                <label for="fileInput" class="file-input-label">
-                    Choose File to Share
-                </label>
-            </div>
-            <div class="file-info" id="fileInfo">
-                <strong>Selected:</strong> <span id="fileName"></span><br>
-                <strong>Size:</strong> <span id="fileSize"></span><br>
-                <strong>Type:</strong> <span id="fileType"></span>
-            </div>
-        </div>
-
-        <!-- Connection Section -->
-        <div class="section" id="connection-section">
-            <h2>🔗 Share Connection</h2>
-            <button class="btn" id="createOfferBtn" disabled>Create Share Link</button>
-            <div class="share-url hidden" id="shareUrlContainer">
-                <div id="shareUrl"></div>
-                <button class="btn copy-btn" id="copyUrlBtn">Copy Link</button>
-            </div>
-            <div class="status info hidden" id="waitingStatus">
-                Waiting for connection...
-            </div>
-            
-            <!-- Answer input for manual signaling -->
-            <div class="hidden" id="answerSection">
-                <h3>Paste the answer from the receiver:</h3>
-                <textarea id="answerInput" placeholder="Paste answer here..." 
-                         style="width: 100%; height: 100px; margin: 10px 0; padding: 10px; border-radius: 8px; border: 1px solid #ddd;"></textarea>
-                <button class="btn" id="processAnswerBtn">Connect</button>
-            </div>
-        </div>
-
-        <!-- Receive Section -->
-        <div class="section" id="receive-section">
-            <h2>📥 Receive File</h2>
-            <div class="status info" id="receiveInfo">File details will appear here...</div>
-            <button class="btn" id="connectBtn" disabled>Accept File Transfer</button>
-            
-            <!-- Show answer for sender -->
-            <div class="hidden" id="answerDisplay">
-                <h3>Send this answer back to the sender:</h3>
-                <div class="peer-answer" id="answerText"></div>
-                <button class="btn copy-btn" id="copyAnswerBtn">Copy Answer</button>
-            </div>
-        </div>
-
-        <!-- Transfer Section -->
-        <div class="section" id="transfer-section">
-            <h2>📤 Transfer Status</h2>
-            <div class="status info hidden" id="connectionStatus"></div>
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+    <header>
+        <h1>🔐 Kaddio P2P File Transfer</h1>
+        <p><strong>Secure, open source, direct file sharing between browsers</strong></p>
+    </header>
+    
+    <main>
+        <!-- MODE TOGGLE -->
+        <section id="mode-selector">
+            <h2>� Choose Your Action</h2>
+            <fieldset>
+                <legend>What do you want to do?</legend>
+                <div style="display: flex; gap: 20px; justify-content: center; margin: 20px 0;">
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 15px; border: 2px solid #007acc; border-radius: 8px; cursor: pointer; background: #f0f8ff;">
+                        <input type="radio" name="mode" value="send" id="sendMode" checked style="margin-bottom: 10px;">
+                        <strong>📤 Send a File</strong>
+                        <small>Share a file from this device</small>
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 15px; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; background: #f0fff0;">
+                        <input type="radio" name="mode" value="receive" id="receiveMode" style="margin-bottom: 10px;">
+                        <strong>📥 Receive a File</strong>
+                        <small>Get a file someone is sharing</small>
+                    </label>
                 </div>
-                <div class="progress-text" id="progressText">0%</div>
-            </div>
+            </fieldset>
+        </section>
+        
+        <section>
+            <h2>📋 How This Works</h2>
+            <details>
+                <summary><strong>Simple Process</strong></summary>
+                <div id="sendInstructions">
+                    <h3>📤 Sending Files:</h3>
+                    <ol>
+                        <li>Choose a file from your device</li>
+                        <li>Click "Create Share Link"</li>
+                        <li>Send the generated link to someone</li>
+                        <li>Wait for them to connect and receive the file</li>
+                    </ol>
+                </div>
+                <div id="receiveInstructions" hidden>
+                    <h3>📥 Receiving Files:</h3>
+                    <ol>
+                        <li>Get a share link from someone</li>
+                        <li>Paste the link in the input field below</li>
+                        <li>Click "Connect to Sender"</li>
+                        <li>Accept the file transfer when prompted</li>
+                    </ol>
+                </div>
+                <p><mark>⚠️ IMPORTANT: Both browsers must stay open during the entire transfer!</mark></p>
+                <p>🔒 Your files are encrypted and transfer directly between browsers - no servers involved!</p>
+            </details>
+        </section>
+        
+        <!-- SEND MODE SECTIONS -->
+        <div id="send-sections">
+            <!-- STEP 1: FILE SELECTION -->
+            <section id="file-section">
+                <h2>📁 Step 1: Select Your File</h2>
+                <fieldset>
+                    <legend>Choose the file you want to share</legend>
+                    <input type="file" id="fileInput" required>
+                    <br><br>
+                    <output id="fileInfo" hidden>
+                        <strong>✅ File Selected:</strong><br>
+                        📄 <strong>Name:</strong> <span id="fileName"></span><br>
+                        📏 <strong>Size:</strong> <span id="fileSize"></span><br>
+                        🏷️ <strong>Type:</strong> <span id="fileType"></span>
+                    </output>
+                </fieldset>
+            </section>
+
+            <!-- STEP 2: CREATE SHARE LINK -->
+            <section id="connection-section">
+                <h2>🔗 Step 2: Create Share Link</h2>
+                <fieldset>
+                    <legend>Generate a secure link to share</legend>
+                    <button id="createOfferBtn" disabled>🚀 Create Share Link</button>
+                    
+                    <details id="shareUrlContainer" hidden>
+                        <summary><strong>📋 Your Share Link (Click to Copy)</strong></summary>
+                        <textarea id="shareUrl" readonly rows="3" style="width: 100%; font-family: monospace;"></textarea>
+                        <button id="copyUrlBtn">📋 Copy Link to Clipboard</button>
+                    </details>
+                    
+                    <div id="waitingStatus" hidden>
+                        <p><strong>⏳ Status:</strong> Waiting for someone to connect...</p>
+                        <progress indeterminate>Waiting...</progress>
+                    </div>
+                    
+                    <details id="manualExchange" hidden>
+                        <summary><strong>🔧 Manual Exchange (if link doesn't work)</strong></summary>
+                        <p>If the automatic link doesn't work, you can manually exchange connection data:</p>
+                        <ol>
+                            <li>Send the link above to the receiver</li>
+                            <li>Ask them to send you back their "answer code"</li>
+                            <li>Paste their answer code below:</li>
+                        </ol>
+                        <textarea id="answerInput" placeholder="Paste the answer code from receiver here..." 
+                                 rows="4" style="width: 100%; font-family: monospace;"></textarea>
+                        <br><br>
+                        <button id="processAnswerBtn">🔌 Connect Using Answer Code</button>
+                    </details>
+                </fieldset>
+            </section>
         </div>
-    </div>
+
+        <!-- RECEIVE MODE SECTIONS -->
+        <div id="receive-sections" hidden>
+            <!-- STEP 1: ENTER SHARE LINK -->
+            <section id="link-input-section">
+                <h2>🔗 Step 1: Enter Share Link</h2>
+                <fieldset>
+                    <legend>Paste the link someone shared with you</legend>
+                    <textarea id="shareLinkInput" placeholder="Paste the share link here..." 
+                             rows="3" style="width: 100%; font-family: monospace;"></textarea>
+                    <br><br>
+                    <button id="processLinkBtn">🔌 Connect to Sender</button>
+                </fieldset>
+            </section>
+
+            <!-- STEP 2: RECEIVE FILE (For receivers) -->
+            <section id="receive-section">
+                <h2>📥 Step 2: Receive File</h2>
+                <fieldset>
+                    <legend>Accept incoming file transfer</legend>
+                    <output id="receiveInfo">
+                        <p>File details will appear here when you connect to a sender...</p>
+                    </output>
+                    <br>
+                    <button id="connectBtn" disabled>✅ Accept File Transfer</button>
+                    
+                    <details id="answerDisplay" hidden>
+                        <summary><strong>📤 Answer Code (Send this back to sender)</strong></summary>
+                        <p>Copy this code and send it back to the person sharing the file:</p>
+                        <textarea id="answerText" readonly rows="4" style="width: 100%; font-family: monospace;"></textarea>
+                        <button id="copyAnswerBtn">📋 Copy Answer Code</button>
+                    </details>
+                </fieldset>
+            </section>
+        </div>
+
+        <!-- STEP 3: TRANSFER STATUS -->
+        <section id="transfer-section">
+            <h2>📤 Step 3: File Transfer</h2>
+            <fieldset>
+                <legend>Transfer progress and status</legend>
+                <output id="connectionStatus" hidden>
+                    Connection status will appear here...
+                </output>
+                <br>
+                <label for="progressBar">Transfer Progress:</label>
+                <progress id="progressBar" value="0" max="100" hidden>0%</progress>
+                <output id="progressText">Ready to transfer...</output>
+            </fieldset>
+        </section>
+    </main>
+
+    <footer>
+        <details>
+            <summary><strong>🆘 Troubleshooting</strong></summary>
+            <h3>Common Issues:</h3>
+            <dl>
+                <dt><strong>Connection failed?</strong></dt>
+                <dd>• Make sure both people have the page open<br>
+                    • Try refreshing and creating a new link<br>
+                    • Check your internet connection</dd>
+                
+                <dt><strong>Transfer stuck?</strong></dt>
+                <dd>• Don't close the browser tab during transfer<br>
+                    • Large files take longer - be patient<br>
+                    • Try with a smaller file first</dd>
+                
+                <dt><strong>Can't download?</strong></dt>
+                <dd>• Check if your browser blocked the download<br>
+                    • Look for download notification in browser<br>
+                    • Try a different browser</dd>
+            </dl>
+        </details>
+    </footer>
 
     <script>
         class P2PFileTransfer {
@@ -112,6 +220,16 @@
             }
 
             bindEvents() {
+                // Mode toggle event handlers
+                document.getElementById('sendMode').addEventListener('change', () => {
+                    this.switchToSendMode();
+                });
+
+                document.getElementById('receiveMode').addEventListener('change', () => {
+                    this.switchToReceiveMode();
+                });
+
+                // Send mode events
                 document.getElementById('fileInput').addEventListener('change', (e) => {
                     this.handleFileSelect(e.target.files[0]);
                 });
@@ -120,20 +238,25 @@
                     this.createOffer();
                 });
 
-                document.getElementById('connectBtn').addEventListener('click', () => {
-                    this.handleAnswer();
-                });
-
                 document.getElementById('copyUrlBtn').addEventListener('click', () => {
                     this.copyToClipboard(document.getElementById('shareUrl').textContent);
                 });
 
-                document.getElementById('copyAnswerBtn').addEventListener('click', () => {
-                    this.copyToClipboard(document.getElementById('answerText').textContent);
-                });
-
                 document.getElementById('processAnswerBtn').addEventListener('click', () => {
                     this.processAnswer();
+                });
+
+                // Receive mode events
+                document.getElementById('processLinkBtn').addEventListener('click', () => {
+                    this.processShareLink();
+                });
+
+                document.getElementById('connectBtn').addEventListener('click', () => {
+                    this.handleAnswer();
+                });
+
+                document.getElementById('copyAnswerBtn').addEventListener('click', () => {
+                    this.copyToClipboard(document.getElementById('answerText').textContent);
                 });
             }
 
@@ -145,10 +268,10 @@
                 document.getElementById('fileName').textContent = file.name;
                 document.getElementById('fileSize').textContent = this.formatFileSize(file.size);
                 document.getElementById('fileType').textContent = file.type || 'Unknown';
-                document.getElementById('fileInfo').classList.add('show');
+                document.getElementById('fileInfo').hidden = false;
                 document.getElementById('createOfferBtn').disabled = false;
                 
-                this.showStatus('File selected successfully!', 'success');
+                this.showStatus('✅ File selected successfully! Now click "Create Share Link"', 'success');
             }
 
             async createOffer() {
@@ -181,11 +304,11 @@
                                btoa(JSON.stringify(offerData));
                     
                     document.getElementById('shareUrl').textContent = url;
-                    document.getElementById('shareUrlContainer').classList.remove('hidden');
-                    document.getElementById('waitingStatus').classList.remove('hidden');
-                    document.getElementById('answerSection').classList.remove('hidden');
+                    document.getElementById('shareUrlContainer').hidden = false;
+                    document.getElementById('waitingStatus').hidden = false;
+                    document.getElementById('manualExchange').hidden = false;
                     
-                    this.showStatus('Share link created! Send it to the recipient and wait for their answer.', 'info');
+                    this.showStatus('🎉 Share link created! Send this link to the person you want to share with.', 'success');
                     
                 } catch (error) {
                     this.showStatus('Error creating offer: ' + error.message, 'error');
@@ -204,8 +327,8 @@
                     const answerData = JSON.parse(atob(answerText));
                     await this.localConnection.setRemoteDescription(answerData.answer);
                     
-                    this.showStatus('Answer processed! Waiting for connection...', 'info');
-                    document.getElementById('answerSection').classList.add('hidden');
+                    this.showStatus('🔌 Answer processed! Connection established!', 'success');
+                    document.getElementById('manualExchange').hidden = true;
                     
                 } catch (error) {
                     this.showStatus('Error processing answer: ' + error.message, 'error');
@@ -218,10 +341,53 @@
                 if (hash) {
                     try {
                         const offerData = JSON.parse(atob(hash));
+                        // Switch to receive mode automatically when a link is opened
+                        document.getElementById('receiveMode').checked = true;
+                        this.switchToReceiveMode();
                         this.setupReceiver(offerData);
                     } catch (error) {
                         this.showStatus('Invalid share link', 'error');
                     }
+                }
+            }
+
+            switchToSendMode() {
+                document.getElementById('send-sections').hidden = false;
+                document.getElementById('receive-sections').hidden = true;
+                document.getElementById('sendInstructions').hidden = false;
+                document.getElementById('receiveInstructions').hidden = true;
+                this.showStatus('📤 Send mode activated. Select a file to share.', 'info');
+            }
+
+            switchToReceiveMode() {
+                document.getElementById('send-sections').hidden = true;
+                document.getElementById('receive-sections').hidden = false;
+                document.getElementById('sendInstructions').hidden = true;
+                document.getElementById('receiveInstructions').hidden = false;
+                this.showStatus('📥 Receive mode activated. Paste a share link to connect.', 'info');
+            }
+
+            processShareLink() {
+                const linkText = document.getElementById('shareLinkInput').value.trim();
+                if (!linkText) {
+                    this.showStatus('Please paste a share link', 'error');
+                    return;
+                }
+
+                try {
+                    // Extract hash from the link
+                    const url = new URL(linkText);
+                    const hash = url.hash.slice(1);
+                    if (!hash) {
+                        this.showStatus('Invalid share link format', 'error');
+                        return;
+                    }
+
+                    const offerData = JSON.parse(atob(hash));
+                    this.setupReceiver(offerData);
+                } catch (error) {
+                    this.showStatus('Invalid share link. Please check and try again.', 'error');
+                    console.error('Process share link error:', error);
                 }
             }
 
@@ -231,18 +397,22 @@
                 this.receivedFileType = offerData.fileType;
                 this.totalSize = offerData.fileSize;
                 
-                document.getElementById('file-section').style.display = 'none';
-                document.getElementById('connection-section').style.display = 'none';
-                document.getElementById('receive-section').classList.add('active');
+                // Make sure we're in receive mode
+                document.getElementById('receiveMode').checked = true;
+                this.switchToReceiveMode();
+                
                 document.getElementById('connectBtn').disabled = false;
                 
                 document.getElementById('receiveInfo').innerHTML = `
-                    <strong>File:</strong> ${offerData.fileName}<br>
-                    <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
-                    <strong>Type:</strong> ${offerData.fileType || 'Unknown'}
+                    <p><strong>📋 Incoming File Details:</strong></p>
+                    📄 <strong>File:</strong> ${offerData.fileName}<br>
+                    📏 <strong>Size:</strong> ${this.formatFileSize(offerData.fileSize)}<br>
+                    🏷️ <strong>Type:</strong> ${offerData.fileType || 'Unknown'}<br><br>
+                    <mark>Click "Accept File Transfer" below to receive this file</mark>
                 `;
                 
                 this.remoteOffer = offerData.offer;
+                this.showStatus('🔗 Connected to sender! Review file details and click Accept.', 'success');
             }
 
             async handleAnswer() {
@@ -269,9 +439,9 @@
                     
                     const answerString = btoa(JSON.stringify(answerData));
                     document.getElementById('answerText').textContent = answerString;
-                    document.getElementById('answerDisplay').classList.remove('hidden');
+                    document.getElementById('answerDisplay').hidden = false;
                     
-                    this.showStatus('Answer created! Send it back to the sender.', 'info');
+                    this.showStatus('📤 Answer created! Copy the answer code above and send it back to the sender.', 'info');
                     
                 } catch (error) {
                     this.showStatus('Error creating answer: ' + error.message, 'error');
@@ -283,8 +453,8 @@
                 if (!this.dataChannel) return;
                 
                 this.dataChannel.onopen = () => {
-                    this.showStatus('Connection established! Starting file transfer...', 'success');
-                    document.getElementById('progressContainer').classList.add('show');
+                    this.showStatus('🎉 Connection established! Starting file transfer...', 'success');
+                    document.getElementById('progressBar').hidden = false;
                     
                     if (this.isOfferer && this.file) {
                         this.sendFile();
@@ -333,7 +503,7 @@
                                 // Use requestAnimationFrame for better performance
                                 requestAnimationFrame(sendChunk);
                             } else {
-                                this.showStatus('File sent successfully!', 'success');
+                                this.showStatus('✅ File sent successfully!', 'success');
                             }
                         } catch (error) {
                             this.showStatus('Error sending chunk: ' + error.message, 'error');
@@ -372,7 +542,7 @@
                     
                     URL.revokeObjectURL(url);
                     
-                    this.showStatus('File received and downloaded successfully!', 'success');
+                    this.showStatus('🎉 File received and downloaded successfully!', 'success');
                 } catch (error) {
                     this.showStatus('Error saving file: ' + error.message, 'error');
                     console.error('Complete receive error:', error);
@@ -385,9 +555,9 @@
                     console.log('ICE connection state:', state);
                     
                     if (state === 'connected' || state === 'completed') {
-                        this.showStatus('Peers connected successfully!', 'success');
+                        this.showStatus('🔗 Peers connected successfully!', 'success');
                     } else if (state === 'failed' || state === 'disconnected') {
-                        this.showStatus('Connection failed or lost', 'error');
+                        this.showStatus('❌ Connection failed or lost. Try refreshing and creating a new link.', 'error');
                     }
                 };
                 
@@ -423,18 +593,23 @@
             }
 
             updateProgress(progress) {
-                const progressFill = document.getElementById('progressFill');
+                const progressBar = document.getElementById('progressBar');
                 const progressText = document.getElementById('progressText');
                 
-                progressFill.style.width = Math.min(progress, 100) + '%';
-                progressText.textContent = Math.round(Math.min(progress, 100)) + '%';
+                progressBar.value = Math.min(progress, 100);
+                progressText.textContent = `${Math.round(Math.min(progress, 100))}% complete`;
             }
 
             showStatus(message, type) {
                 const statusEl = document.getElementById('connectionStatus');
                 statusEl.textContent = message;
-                statusEl.className = `status ${type}`;
-                statusEl.classList.remove('hidden');
+                statusEl.hidden = false;
+                
+                // Also update the progress text if it's just "Ready to transfer..."
+                const progressText = document.getElementById('progressText');
+                if (progressText.textContent === 'Ready to transfer...') {
+                    progressText.textContent = message;
+                }
             }
 
             formatFileSize(bytes) {
@@ -448,7 +623,7 @@
             async copyToClipboard(text) {
                 try {
                     await navigator.clipboard.writeText(text);
-                    this.showStatus('Copied to clipboard!', 'success');
+                    this.showStatus('📋 Copied to clipboard!', 'success');
                 } catch (error) {
                     // Fallback for older browsers
                     const textArea = document.createElement('textarea');
@@ -459,7 +634,7 @@
                     textArea.select();
                     document.execCommand('copy');
                     document.body.removeChild(textArea);
-                    this.showStatus('Copied to clipboard!', 'success');
+                    this.showStatus('📋 Copied to clipboard!', 'success');
                 }
             }
         }
