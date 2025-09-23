@@ -1,6 +1,7 @@
 class P2PFileTransfer {
     constructor() {
         console.log("That's right, inspect the code to make sure WYSIWYG");
+        console.log("📝 Note: ICE candidate errors during local testing are normal and don't affect functionality");
         
         this.localConnection = null;
         this.dataChannel = null;
@@ -23,7 +24,8 @@ class P2PFileTransfer {
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun.cloudflare.com:3478' }
-            ]
+            ],
+            iceCandidatePoolSize: 10
         };
 
         this.init();
@@ -478,7 +480,12 @@ class P2PFileTransfer {
         };
 
         this.localConnection.onicecandidateerror = (event) => {
-            console.error('ICE candidate error:', event);
+            // ICE candidate errors are common during local testing and don't necessarily indicate failure
+            console.log('ICE candidate attempt failed (normal during local testing):', {
+                url: event.url,
+                errorCode: event.errorCode,
+                errorText: event.errorText
+            });
         };
     }
 
