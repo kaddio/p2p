@@ -1,7 +1,14 @@
 class P2PFileTransfer {
     constructor() {
         console.log("That's right, inspect the code to make sure WYSIWYG");
-        console.log("📝 Note: ICE candidate errors during local testing are normal and don't affect functionality");
+        
+        // Detect if we're running on localhost vs production
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocalhost) {
+            console.log("📝 Note: ICE candidate errors during local testing are normal and don't affect functionality");
+        } else {
+            console.log("🌐 Production mode: Enhanced connectivity diagnostics enabled");
+        }
         
         this.localConnection = null;
         this.dataChannel = null;
@@ -16,16 +23,33 @@ class P2PFileTransfer {
         this.receivedFileType = '';
         this.chunkSize = 16384; // 16KB chunks
         this.pendingAnswerToken = null; // Store answer token when received before offer is created
+        this.stunFailures = []; // Track STUN server failures
+        this.warnedAboutStun = false; // Prevent multiple warnings
         
-        // WebRTC Configuration with public STUN servers for NAT traversal
+        // WebRTC Configuration with diverse STUN servers for maximum compatibility
         this.rtcConfig = {
             iceServers: [
+                // Google STUN servers (most reliable)
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.cloudflare.com:3478' }
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' },
+                
+                // Alternative STUN servers for better fallback
+                { urls: 'stun:stun.cloudflare.com:3478' },
+                { urls: 'stun:stun.nextcloud.com:443' },
+                { urls: 'stun:stun.stunprotocol.org:3478' },
+                
+                // Additional fallback servers
+                { urls: 'stun:stun.ekiga.net' },
+                { urls: 'stun:stun.ideasip.com' },
+                { urls: 'stun:stun.schlund.de' }
             ],
-            iceCandidatePoolSize: 10
+            iceCandidatePoolSize: 10,
+            // More aggressive ICE gathering for better connectivity
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'balanced'
         };
 
         this.init();
@@ -34,6 +58,7 @@ class P2PFileTransfer {
     init() {
         this.bindEvents();
         this.checkUrlForOffer();
+        this.checkConnectivity();
     }
 
     bindEvents() {
@@ -75,6 +100,31 @@ class P2PFileTransfer {
         document.getElementById('copyAnswerBtn').addEventListener('click', () => {
             this.copyToClipboard(document.getElementById('answerText').textContent);
         });
+    }
+
+    async checkConnectivity() {
+        // Quick connectivity test - don't block the UI
+        try {
+            const testConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            // Set a short timeout for the test
+            setTimeout(() => {
+                if (testConnection.iceGatheringState !== 'complete') {
+                    console.log('📡 STUN connectivity test: Limited connectivity detected');
+                }
+                testConnection.close();
+            }, 3000);
+            
+            // Start ICE gathering
+            testConnection.createDataChannel('test');
+            const offer = await testConnection.createOffer();
+            await testConnection.setLocalDescription(offer);
+            
+        } catch (error) {
+            console.log('📡 Network connectivity test failed:', error.message);
+        }
     }
 
     handleFileSelect(file) {
@@ -469,6 +519,10 @@ class P2PFileTransfer {
             console.log('ICE connection state:', state);
             
             if (state === 'connected' || state === 'completed') {
+                // Clear any previous STUN warnings since connection succeeded
+                if (this.stunFailures.length > 0) {
+                    console.log('✅ Connection established despite STUN server issues');
+                }
                 this.showStatus('🔗 Peers connected successfully!', 'success');
             } else if (state === 'failed' || state === 'disconnected') {
                 this.showStatus('❌ Connection failed or lost. Try refreshing and creating a new link.', 'error');
@@ -481,12 +535,34 @@ class P2PFileTransfer {
         };
 
         this.localConnection.onicecandidateerror = (event) => {
-            // ICE candidate errors are common during local testing and don't necessarily indicate failure
-            console.log('ICE candidate attempt failed (normal during local testing):', {
+            // Track STUN server failures for diagnostics
+            if (!this.stunFailures) this.stunFailures = [];
+            this.stunFailures.push({
+                url: event.url,
+                errorCode: event.errorCode,
+                errorText: event.errorText,
+                timestamp: Date.now()
+            });
+            
+            console.log('STUN server failed:', {
                 url: event.url,
                 errorCode: event.errorCode,
                 errorText: event.errorText
             });
+            
+            // If multiple STUN servers are failing, show a helpful warning
+            if (this.stunFailures.length >= 4 && !this.warnedAboutStun) {
+                this.warnedAboutStun = true;
+                console.warn('⚠️ Multiple STUN servers failing - connection may only work on same network');
+                
+                // Show user-friendly message
+                const statusEl = document.getElementById('connectionStatus');
+                statusEl.innerHTML = `
+                    ⚠️ Network connectivity limited - connections work best when both users are on the same WiFi network.<br>
+                    <small>Corporate firewalls may block connections between different networks.</small>
+                `;
+                statusEl.hidden = false;
+            }
         };
     }
 
