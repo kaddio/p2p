@@ -25,8 +25,9 @@ class P2PFileTransfer {
         this.pendingAnswerToken = null; // Store answer token when received before offer is created
         this.stunFailures = []; // Track STUN server failures
         this.warnedAboutStun = false; // Prevent multiple warnings
+        this.connectionAttempts = 0; // Track retry attempts
         
-        // WebRTC Configuration with diverse STUN servers for maximum compatibility
+        // WebRTC Configuration with STUN and TURN servers for maximum compatibility
         this.rtcConfig = {
             iceServers: [
                 // Google STUN servers (most reliable)
@@ -44,12 +45,35 @@ class P2PFileTransfer {
                 // Additional fallback servers
                 { urls: 'stun:stun.ekiga.net' },
                 { urls: 'stun:stun.ideasip.com' },
-                { urls: 'stun:stun.schlund.de' }
+                { urls: 'stun:stun.schlund.de' },
+                
+                // Free TURN servers for relay when direct connection fails
+                {
+                    urls: [
+                        'turn:openrelay.metered.ca:80',
+                        'turn:openrelay.metered.ca:443',
+                        'turn:openrelay.metered.ca:443?transport=tcp'
+                    ],
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: [
+                        'turn:a.relay.metered.ca:80',
+                        'turn:a.relay.metered.ca:80?transport=tcp',
+                        'turn:a.relay.metered.ca:443',
+                        'turn:a.relay.metered.ca:443?transport=tcp'
+                    ],
+                    username: 'a0908098a62d896575c67aa',
+                    credential: 'TzpWV9lBbMxk20JSrF44unbF8RwTcZ7h4F3+tbJm'
+                }
             ],
             iceCandidatePoolSize: 10,
             // More aggressive ICE gathering for better connectivity
             iceTransportPolicy: 'all',
-            bundlePolicy: 'balanced'
+            bundlePolicy: 'balanced',
+            // Allow relay candidates to ensure TURN servers are used
+            iceServersPolicy: 'all'
         };
 
         this.init();
@@ -105,22 +129,38 @@ class P2PFileTransfer {
     async checkConnectivity() {
         // Quick connectivity test - don't block the UI
         try {
-            const testConnection = new RTCPeerConnection({
+            console.log('🔍 Testing network connectivity...');
+            
+            // Test STUN servers
+            const stunTest = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             });
             
-            // Set a short timeout for the test
-            setTimeout(() => {
-                if (testConnection.iceGatheringState !== 'complete') {
-                    console.log('📡 STUN connectivity test: Limited connectivity detected');
-                }
-                testConnection.close();
-            }, 3000);
+            // Test TURN servers
+            const turnTest = new RTCPeerConnection({
+                iceServers: [{
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }]
+            });
             
-            // Start ICE gathering
-            testConnection.createDataChannel('test');
-            const offer = await testConnection.createOffer();
-            await testConnection.setLocalDescription(offer);
+            // Set timeouts for the tests
+            setTimeout(() => {
+                console.log('📡 STUN test state:', stunTest.iceGatheringState);
+                console.log('📡 TURN test state:', turnTest.iceGatheringState);
+                stunTest.close();
+                turnTest.close();
+            }, 5000);
+            
+            // Start ICE gathering for both tests
+            stunTest.createDataChannel('stun-test');
+            const stunOffer = await stunTest.createOffer();
+            await stunTest.setLocalDescription(stunOffer);
+            
+            turnTest.createDataChannel('turn-test');
+            const turnOffer = await turnTest.createOffer();
+            await turnTest.setLocalDescription(turnOffer);
             
         } catch (error) {
             console.log('📡 Network connectivity test failed:', error.message);
@@ -524,8 +564,18 @@ class P2PFileTransfer {
                     console.log('✅ Connection established despite STUN server issues');
                 }
                 this.showStatus('🔗 Peers connected successfully!', 'success');
-            } else if (state === 'failed' || state === 'disconnected') {
-                this.showStatus('❌ Connection failed or lost. Try refreshing and creating a new link.', 'error');
+            } else if (state === 'failed') {
+                this.connectionAttempts++;
+                console.error('❌ ICE connection failed - network restrictions likely blocking P2P connection');
+                console.log(`Connection attempt ${this.connectionAttempts} failed`);
+                console.log('Available TURN servers:', this.rtcConfig.iceServers.filter(server => 
+                    server.urls && server.urls.toString().includes('turn:')));
+                
+                this.showNetworkTroubleshooting();
+            } else if (state === 'disconnected') {
+                this.showStatus('🔌 Connection lost. Try refreshing and creating a new link.', 'error');
+            } else if (state === 'checking') {
+                this.showStatus('🔍 Finding connection path...', 'info');
             }
         };
         
@@ -593,6 +643,34 @@ class P2PFileTransfer {
         
         progressBar.value = Math.min(progress, 100);
         progressText.textContent = `${Math.round(Math.min(progress, 100))}% complete`;
+    }
+
+    showNetworkTroubleshooting() {
+        // Add helpful troubleshooting info to the status area
+        const statusEl = document.getElementById('connectionStatus');
+        statusEl.innerHTML = `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 10px 0;">
+                <h4 style="margin-top: 0; color: #856404;">🚧 Connection Blocked by Network</h4>
+                <p><strong>This usually happens because:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Corporate firewall blocks peer-to-peer connections</li>
+                    <li>Both users are behind strict NAT/routers</li>
+                    <li>ISP blocks WebRTC traffic</li>
+                </ul>
+                <p><strong>Try these solutions:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>✅ <strong>Same WiFi network:</strong> Connect both devices to the same WiFi</li>
+                    <li>📱 <strong>Mobile hotspot:</strong> One person creates a hotspot, other connects to it</li>
+                    <li>🏠 <strong>Home networks:</strong> Usually work better than office/school networks</li>
+                    <li>🔄 <strong>Try again:</strong> Sometimes it works on the second attempt</li>
+                </ul>
+                <button onclick="location.reload()" style="background: #007acc; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin: 10px 5px 0 0;">
+                    🔄 Retry Connection
+                </button>
+                <p><small>P2P file sharing requires direct browser-to-browser connections, which some networks restrict for security.</small></p>
+            </div>
+        `;
+        statusEl.hidden = false;
     }
 
     showStatus(message, type) {
