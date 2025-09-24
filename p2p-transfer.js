@@ -7,7 +7,8 @@ class P2PFileTransfer {
         if (isLocalhost) {
             console.log("📝 Note: ICE candidate errors during local testing are normal and don't affect functionality");
         } else {
-            console.log("🌐 Production mode: Enhanced connectivity diagnostics enabled");
+                    console.log('🌐 Production mode: Enhanced connectivity diagnostics enabled');
+        console.log('🔧 TURN server diagnostics: Run testTurnServers() in console to test all servers');
         }
         
         this.localConnection = null;
@@ -37,23 +38,24 @@ class P2PFileTransfer {
                 // Backup STUN servers
                 { urls: 'stun:stun.cloudflare.com:3478' },
                 
-                // Reliable free TURN servers for NAT traversal
+                // Multiple TURN servers for maximum reliability
                 {
                     urls: [
-                        'turn:turn.bistri.com:80',
-                        'turn:turn.bistri.com:443',
-                        'turn:turn.bistri.com:443?transport=tcp'
+                        'turn:openrelay.metered.ca:80',
+                        'turn:openrelay.metered.ca:443',
+                        'turn:openrelay.metered.ca:443?transport=tcp'
                     ],
-                    username: 'bismuth',
-                    credential: 'bismuth'
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
                 },
                 {
                     urls: [
-                        'turn:numb.viagenie.ca:3478',
-                        'turn:numb.viagenie.ca:3478?transport=tcp'
+                        'turn:relay.metered.ca:80',
+                        'turn:relay.metered.ca:443',
+                        'turn:relay.metered.ca:443?transport=tcp'
                     ],
-                    username: 'webrtc@live.com',
-                    credential: 'muazkh'
+                    username: 'ee4637ce6d2714ef40600c5c',
+                    credential: 'S3pPKEyoLavOCjzlfjW11tCuZrRVFyCKlU8mJRfH'
                 }
             ],
             iceCandidatePoolSize: 10,
@@ -124,22 +126,58 @@ class P2PFileTransfer {
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             });
             
-            // Test TURN servers
+            // Test TURN servers with current configuration
             const turnTest = new RTCPeerConnection({
                 iceServers: [{
-                    urls: 'turn:turn.bistri.com:80',
-                    username: 'bismuth',
-                    credential: 'bismuth'
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
                 }]
             });
             
+            // Enhanced TURN server diagnostics
+            let stunCandidates = 0, turnRelayFound = false;
+            
+            stunTest.onicecandidate = (event) => {
+                if (event.candidate) {
+                    stunCandidates++;
+                    console.log('🔍 STUN candidate:', event.candidate.candidate.substring(0, 50) + '...');
+                }
+            };
+            
+            turnTest.onicecandidate = (event) => {
+                if (event.candidate) {
+                    const candidate = event.candidate.candidate;
+                    if (candidate.includes('relay')) {
+                        turnRelayFound = true;
+                        console.log('✅ TURN relay candidate found:', candidate);
+                    } else {
+                        console.log('📡 TURN candidate (non-relay):', candidate.substring(0, 50) + '...');
+                    }
+                }
+            };
+            
+            turnTest.onicecandidateerror = (event) => {
+                console.error('❌ TURN server error:', {
+                    url: event.url,
+                    errorCode: event.errorCode,
+                    errorText: event.errorText
+                });
+            };
+            
             // Set timeouts for the tests
             setTimeout(() => {
-                console.log('📡 STUN test state:', stunTest.iceGatheringState);
-                console.log('📡 TURN test state:', turnTest.iceGatheringState);
+                console.log('📊 Network Test Results:');
+                console.log('📡 STUN test state:', stunTest.iceGatheringState, `(${stunCandidates} candidates)`);
+                console.log('📡 TURN test state:', turnTest.iceGatheringState, turnRelayFound ? '✅ Relay working' : '❌ No relay found');
+                
+                if (!turnRelayFound) {
+                    console.warn('🚨 TURN server issue: No relay candidates found. This will cause connection failures in restrictive networks.');
+                }
+                
                 stunTest.close();
                 turnTest.close();
-            }, 5000);
+            }, 8000);
             
             // Start ICE gathering for both tests
             stunTest.createDataChannel('stun-test');
@@ -152,6 +190,68 @@ class P2PFileTransfer {
             
         } catch (error) {
             console.log('📡 Network connectivity test failed:', error.message);
+        }
+    }
+
+    // Debug function to manually test all TURN servers
+    async testAllTurnServers() {
+        console.log('🔬 Testing all TURN servers individually...');
+        
+        const turnServers = [
+            {
+                name: 'OpenRelay Metered',
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                name: 'Relay Metered',
+                urls: 'turn:relay.metered.ca:80',
+                username: 'ee4637ce6d2714ef40600c5c',
+                credential: 'S3pPKEyoLavOCjzlfjW11tCuZrRVFyCKlU8mJRfH'
+            }
+        ];
+
+        for (let i = 0; i < turnServers.length; i++) {
+            const server = turnServers[i];
+            console.log(`\n🧪 Testing ${server.name}...`);
+            
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [server]
+                });
+                
+                let relayFound = false;
+                let candidateCount = 0;
+                
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        candidateCount++;
+                        const candidate = event.candidate.candidate;
+                        if (candidate.includes('relay')) {
+                            relayFound = true;
+                            console.log(`✅ ${server.name}: Relay candidate found!`);
+                        }
+                    }
+                };
+                
+                pc.onicecandidateerror = (event) => {
+                    console.error(`❌ ${server.name} error:`, event.errorText || event.errorCode);
+                };
+                
+                pc.createDataChannel('test');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                // Wait for ICE gathering
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
+                console.log(`📊 ${server.name}: ${candidateCount} candidates, relay: ${relayFound ? '✅' : '❌'}`);
+                pc.close();
+                
+            } catch (error) {
+                console.error(`💥 ${server.name} failed:`, error.message);
+            }
         }
     }
 
@@ -718,7 +818,7 @@ class P2PFileTransfer {
                 await this.createOffer();
             } else if (this.remoteOffer) {
                 // Retry as receiver
-                await this.createAnswer();
+                await this.handleAnswer();
             }
         } catch (error) {
             console.error('Retry failed:', error);
@@ -742,5 +842,10 @@ class P2PFileTransfer {
 
 // Initialize the application when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new P2PFileTransfer();
+    const p2p = new P2PFileTransfer();
+    
+    // Expose debug functions globally for manual testing
+    window.testTurnServers = () => p2p.testAllTurnServers();
+    window.p2pDebug = p2p;
+    console.log('🔧 Debug functions available: testTurnServers(), p2pDebug');
 });
