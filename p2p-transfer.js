@@ -38,14 +38,15 @@ class P2PFileTransfer {
                 // Backup STUN servers
                 { urls: 'stun:stun.cloudflare.com:3478' },
                 
-                // Single reliable TURN server for NAT traversal
+                // Free TURN servers for NAT traversal
                 {
                     urls: [
-                        'turn:relay1.expressturn.com:3480',
-                        'turn:relay1.expressturn.com:3480?transport=tcp'
+                        'turn:openrelay.metered.ca:80',
+                        'turn:openrelay.metered.ca:443',
+                        'turn:openrelay.metered.ca:443?transport=tcp'
                     ],
-                    username: '000000002074057322',
-                    credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
                 }
             ],
             iceCandidatePoolSize: 10,
@@ -119,9 +120,9 @@ class P2PFileTransfer {
             // Test TURN servers with current configuration
             const turnTest = new RTCPeerConnection({
                 iceServers: [{
-                    urls: 'turn:relay1.expressturn.com:3480',
-                    username: '000000002074057322',
-                    credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
                 }]
             });
             
@@ -189,10 +190,10 @@ class P2PFileTransfer {
         
         const turnServers = [
             {
-                name: 'ExpressTURN',
-                urls: 'turn:relay1.expressturn.com:3480',
-                username: '000000002074057322',
-                credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
+                name: 'OpenRelay Metered',
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
             }
         ];
 
@@ -778,11 +779,11 @@ class P2PFileTransfer {
                 iceServers: [
                     // Try only Google STUN (most reliable)
                     { urls: 'stun:stun.l.google.com:19302' },
-                    // Use same TURN server with reduced transport options
+                    // Use fallback TURN server
                     {
-                        urls: 'turn:relay1.expressturn.com:3480',
-                        username: '000000002074057322',
-                        credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
                     }
                 ],
                 iceCandidatePoolSize: 5,
