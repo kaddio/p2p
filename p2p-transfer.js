@@ -27,45 +27,33 @@ class P2PFileTransfer {
         this.warnedAboutStun = false; // Prevent multiple warnings
         this.connectionAttempts = 0; // Track retry attempts
         
-        // WebRTC Configuration with STUN and TURN servers for maximum compatibility
+        // WebRTC Configuration - optimized for speed and reliability
         this.rtcConfig = {
             iceServers: [
-                // Google STUN servers (most reliable)
+                // Primary STUN servers (Google - most reliable)
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' },
                 
-                // Alternative STUN servers for better fallback
+                // Backup STUN servers
                 { urls: 'stun:stun.cloudflare.com:3478' },
-                { urls: 'stun:stun.nextcloud.com:443' },
-                { urls: 'stun:stun.stunprotocol.org:3478' },
                 
-                // Additional fallback servers
-                { urls: 'stun:stun.ekiga.net' },
-                { urls: 'stun:stun.ideasip.com' },
-                { urls: 'stun:stun.schlund.de' },
-                
-                // Free TURN servers for relay when direct connection fails
+                // Reliable free TURN servers for NAT traversal
                 {
                     urls: [
-                        'turn:openrelay.metered.ca:80',
-                        'turn:openrelay.metered.ca:443',
-                        'turn:openrelay.metered.ca:443?transport=tcp'
+                        'turn:turn.bistri.com:80',
+                        'turn:turn.bistri.com:443',
+                        'turn:turn.bistri.com:443?transport=tcp'
                     ],
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    username: 'bismuth',
+                    credential: 'bismuth'
                 },
                 {
                     urls: [
-                        'turn:a.relay.metered.ca:80',
-                        'turn:a.relay.metered.ca:80?transport=tcp',
-                        'turn:a.relay.metered.ca:443',
-                        'turn:a.relay.metered.ca:443?transport=tcp'
+                        'turn:numb.viagenie.ca:3478',
+                        'turn:numb.viagenie.ca:3478?transport=tcp'
                     ],
-                    username: 'a0908098a62d896575c67aa',
-                    credential: 'TzpWV9lBbMxk20JSrF44unbF8RwTcZ7h4F3+tbJm'
+                    username: 'webrtc@live.com',
+                    credential: 'muazkh'
                 }
             ],
             iceCandidatePoolSize: 10,
@@ -139,9 +127,9 @@ class P2PFileTransfer {
             // Test TURN servers
             const turnTest = new RTCPeerConnection({
                 iceServers: [{
-                    urls: 'turn:openrelay.metered.ca:80',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:turn.bistri.com:80',
+                    username: 'bismuth',
+                    credential: 'bismuth'
                 }]
             });
             
@@ -568,10 +556,18 @@ class P2PFileTransfer {
                 this.connectionAttempts++;
                 console.error('❌ ICE connection failed - network restrictions likely blocking P2P connection');
                 console.log(`Connection attempt ${this.connectionAttempts} failed`);
-                console.log('Available TURN servers:', this.rtcConfig.iceServers.filter(server => 
-                    server.urls && server.urls.toString().includes('turn:')));
                 
-                this.showNetworkTroubleshooting();
+                // Try alternative TURN server configuration if available
+                if (this.connectionAttempts < 3) {
+                    console.log('🔄 Retrying with alternative server configuration...');
+                    setTimeout(() => {
+                        this.retryConnectionWithFallback();
+                    }, 2000);
+                } else {
+                    console.log('Available TURN servers:', this.rtcConfig.iceServers.filter(server => 
+                        server.urls && server.urls.toString().includes('turn:')));
+                    this.showNetworkTroubleshooting();
+                }
             } else if (state === 'disconnected') {
                 this.showStatus('🔌 Connection lost. Try refreshing and creating a new link.', 'error');
             } else if (state === 'checking') {
@@ -650,12 +646,13 @@ class P2PFileTransfer {
         const statusEl = document.getElementById('connectionStatus');
         statusEl.innerHTML = `
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 10px 0;">
-                <h4 style="margin-top: 0; color: #856404;">🚧 Connection Blocked by Network</h4>
-                <p><strong>This usually happens because:</strong></p>
+                <h4 style="margin-top: 0; color: #856404;">🚧 Connection Failed - Network Restrictions</h4>
+                <p><strong>The connection failed because:</strong></p>
                 <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>Corporate firewall blocks peer-to-peer connections</li>
-                    <li>Both users are behind strict NAT/routers</li>
-                    <li>ISP blocks WebRTC traffic</li>
+                    <li>Your network blocks peer-to-peer connections (common in corporate/school networks)</li>
+                    <li>Both devices are behind strict firewalls/NAT</li>
+                    <li>Mobile hotspot or ISP restrictions</li>
+                    <li>TURN relay servers are unavailable or overloaded</li>
                 </ul>
                 <p><strong>Try these solutions:</strong></p>
                 <ul style="margin: 10px 0; padding-left: 20px;">
@@ -682,6 +679,50 @@ class P2PFileTransfer {
         const progressText = document.getElementById('progressText');
         if (progressText.textContent === 'Select a mode above to get started') {
             progressText.textContent = message;
+        }
+    }
+
+    async retryConnectionWithFallback() {
+        try {
+            // Close existing connection
+            if (this.localConnection) {
+                this.localConnection.close();
+            }
+            
+            // Use alternative server configuration for retry
+            const fallbackConfig = {
+                iceServers: [
+                    // Try only Google STUN (most reliable)
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    // Use alternative TURN server
+                    {
+                        urls: [
+                            'turn:numb.viagenie.ca:3478',
+                            'turn:numb.viagenie.ca:3478?transport=tcp'
+                        ],
+                        username: 'webrtc@live.com',
+                        credential: 'muazkh'
+                    }
+                ],
+                iceCandidatePoolSize: 5,
+                iceTransportPolicy: 'all',
+                bundlePolicy: 'balanced'
+            };
+            
+            this.rtcConfig = fallbackConfig;
+            this.showStatus('🔄 Retrying with different servers...', 'info');
+            
+            // Retry the appropriate connection method
+            if (this.isOfferer && this.file) {
+                // Retry as sender
+                await this.createOffer();
+            } else if (this.remoteOffer) {
+                // Retry as receiver
+                await this.createAnswer();
+            }
+        } catch (error) {
+            console.error('Retry failed:', error);
+            this.showNetworkTroubleshooting();
         }
     }
 
