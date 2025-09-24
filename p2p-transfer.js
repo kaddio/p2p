@@ -38,24 +38,14 @@ class P2PFileTransfer {
                 // Backup STUN servers
                 { urls: 'stun:stun.cloudflare.com:3478' },
                 
-                // Multiple TURN servers for maximum reliability
+                // Single reliable TURN server for NAT traversal
                 {
                     urls: [
-                        'turn:openrelay.metered.ca:80',
-                        'turn:openrelay.metered.ca:443',
-                        'turn:openrelay.metered.ca:443?transport=tcp'
+                        'turn:relay1.expressturn.com:3480',
+                        'turn:relay1.expressturn.com:3480?transport=tcp'
                     ],
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                {
-                    urls: [
-                        'turn:relay.metered.ca:80',
-                        'turn:relay.metered.ca:443',
-                        'turn:relay.metered.ca:443?transport=tcp'
-                    ],
-                    username: 'ee4637ce6d2714ef40600c5c',
-                    credential: 'S3pPKEyoLavOCjzlfjW11tCuZrRVFyCKlU8mJRfH'
+                    username: '000000002074057322',
+                    credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
                 }
             ],
             iceCandidatePoolSize: 10,
@@ -129,9 +119,9 @@ class P2PFileTransfer {
             // Test TURN servers with current configuration
             const turnTest = new RTCPeerConnection({
                 iceServers: [{
-                    urls: 'turn:openrelay.metered.ca:80',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:relay1.expressturn.com:3480',
+                    username: '000000002074057322',
+                    credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
                 }]
             });
             
@@ -199,16 +189,10 @@ class P2PFileTransfer {
         
         const turnServers = [
             {
-                name: 'OpenRelay Metered',
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                name: 'Relay Metered',
-                urls: 'turn:relay.metered.ca:80',
-                username: 'ee4637ce6d2714ef40600c5c',
-                credential: 'S3pPKEyoLavOCjzlfjW11tCuZrRVFyCKlU8mJRfH'
+                name: 'ExpressTURN',
+                urls: 'turn:relay1.expressturn.com:3480',
+                username: '000000002074057322',
+                credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
             }
         ];
 
@@ -789,19 +773,16 @@ class P2PFileTransfer {
                 this.localConnection.close();
             }
             
-            // Use alternative server configuration for retry
+            // Use simplified server configuration for retry
             const fallbackConfig = {
                 iceServers: [
                     // Try only Google STUN (most reliable)
                     { urls: 'stun:stun.l.google.com:19302' },
-                    // Use alternative TURN server
+                    // Use same TURN server with reduced transport options
                     {
-                        urls: [
-                            'turn:numb.viagenie.ca:3478',
-                            'turn:numb.viagenie.ca:3478?transport=tcp'
-                        ],
-                        username: 'webrtc@live.com',
-                        credential: 'muazkh'
+                        urls: 'turn:relay1.expressturn.com:3480',
+                        username: '000000002074057322',
+                        credential: 'BRwal53rTTfW76QaIB/14pDr4Mc='
                     }
                 ],
                 iceCandidatePoolSize: 5,
